@@ -1,12 +1,9 @@
 from typing import Optional, Any
-from typing_extensions import Protocol
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import PreTrainedTokenizerBase
 import torch
 
-
-class GenerativeModel(Protocol):
-    def generate(self, *args, **kwargs): ...
+torch.set_num_threads(4)
 
 MODEL_ID = "Qwen/Qwen2.5-0.5B"
 
@@ -22,9 +19,7 @@ def load_llm() -> None:
 
     print("🔄 Carregando LLM...")
 
-    _tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_ID,
-    )
+    _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
     print("✅ Tokenizer carregado")
 
     _model = AutoModelForCausalLM.from_pretrained(
@@ -32,7 +27,6 @@ def load_llm() -> None:
         dtype=torch.float32,
         low_cpu_mem_usage=True,
     )
-
     print("✅ LLM carregada")
 
 
@@ -42,14 +36,36 @@ def llm_answer(text: str) -> str:
     assert _model is not None
     assert _tokenizer is not None
 
-    encodings = _tokenizer(text, return_tensors="pt")
+    text = text[:2000]
 
-    generated_ids = _model.generate(
-        encodings["input_ids"],
-        max_new_tokens=200,
+    prompt = f"""Você é um assistente nutricional, que responde apenas as informações nutricionais em macronutrientes de cada alimento passado.
+Usuário: {text}
+Assistente:"""
+
+    encodings = _tokenizer(
+        prompt,
+        return_tensors="pt",
+        padding=True,
     )
 
-    return _tokenizer.decode(
+    with torch.no_grad():
+        generated_ids = _model.generate(
+            input_ids=encodings["input_ids"],
+            attention_mask=encodings["attention_mask"],
+            max_new_tokens=200,
+            do_sample=True,
+            temperature=0.7,
+            top_p=0.9,
+            repetition_penalty=1.1,
+            pad_token_id=_tokenizer.eos_token_id,
+        )
+
+    decoded = _tokenizer.decode(
         generated_ids[0],
         skip_special_tokens=True,
     )
+
+    if "Assistente:" in decoded:
+        decoded = decoded.split("Usuário:", 1)[1]
+
+    return decoded.strip()
