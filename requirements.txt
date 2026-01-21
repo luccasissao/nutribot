@@ -1,2 +1,7 @@
 telebot
 dotenv
+transformers
+torch
+openai-whisper
+accelerate 
+sentencepiece
