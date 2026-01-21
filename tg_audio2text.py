@@ -43,7 +43,7 @@ def telegram_audio_to_text(bot, message, language="pt"):
     )
 
     # 4. transcrever
-    result = model.transcribe(output_path, language=language)
+    result = model.transcribe(output_path, language=language, fp16=False)
     text = result["text"]
 
     # 5. limpeza
